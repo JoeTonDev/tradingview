@@ -1,0 +1,52 @@
+
+//@version=5
+strategy("bollinger", overlay = true, pyramiding=0, commission_type=strategy.commission.cash_per_order, commission_value=4, slippage=2)
+
+// Define strategy parameters
+smaValues = input.int(350, title="SMA Lenght") 
+stdLength = input.int(350, title="STD Lenght")
+
+ubOffset = input.float(2.5, title="Upper Band Offset", step=.5)
+lbOffset = input.float(2.5, title="Lower Band Offset", step=.5)
+
+usePosSize = input.bool(true, title="Use Position Size?")
+riskPerc = input.float(0.5, title="Risk %", step=0.25)
+
+
+// Calculate strategy logic
+sma = ta.sma(close, smaValues)
+std = ta.stdev(close, stdLength)
+
+upperBand = sma + (std * ubOffset)
+lowerBand = sma - (std * lbOffset)
+
+riskEquity = (riskPerc / 100) * strategy.equity
+artCurrency = ta.atr(20) * syminfo.pointvalue
+posSize = usePosSize ? math.floor(riskEquity /artCurrency) : 1
+
+// Output strategy logic
+
+plot(sma, color=color.yellow, title="SMA")
+plot(upperBand, color=color.green, title="Upper Band")
+plot(lowerBand, color=color.red, title="Lower Band")
+
+
+// Execute strategy logic
+
+enterLong = ta.crossover(close, upperBand)
+exitLong = ta.crossunder(close, sma)
+
+enterShort = ta.crossunder(close, lowerBand)
+exitShort = ta.crossover(close, sma)
+
+if enterLong
+    strategy.order("EL", strategy.long, qty=posSize)
+
+if exitLong
+    strategy.exit("Exit Long", from_entry = "EL", qty=posSize)
+
+if enterShort
+    strategy.order("ES", strategy.short, qty=posSize)
+
+if exitShort
+    strategy.exit("Exit Short", from_entry = "ES", qty=posSize)
