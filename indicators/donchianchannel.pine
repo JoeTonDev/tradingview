@@ -1,0 +1,75 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © 
+
+//@version=5
+indicator("Donchian Channel", overlay = true)
+
+// Step 1. Script settings
+// Channel settings
+fastMaLen = input.int(25, title = "Moving Average Length", minval = 1)
+slowMaLen = input.int(350, title = "Moving Average Length", minval = 1)
+
+rsiLen = input.int(14, title = "RSI Length", minval = 1)
+
+dcLen = input.int(20, title = "Donchian Channel Length", minval = 2)
+
+showMid = input.bool(false, title="Show Midline?")
+fillDc = input.bool(false, title="Fill Donchian Channel?")
+
+brekOutFilter = input.int(0, title = "Breakout Filter (Ticks)", minval = 0) * syminfo.mintick
+
+showBreakouts = input.bool(true, title="Show Breakouts?")
+
+// Step 2. Calculate indicator values
+hiHighs = ta.highest(high, dcLen)[1]
+loLows = ta.lowest(low, dcLen)[1]
+
+midPoint = (hiHighs + loLows) / 2
+
+fastMa = ta.ema(close, fastMaLen)
+slowMa = ta.ema(close, slowMaLen)
+
+upTrend = fastMa > slowMa
+downTrend = fastMa < slowMa
+
+rsi = ta.rsi(close, rsiLen)
+rsiCrossover = ta.crossover(rsi, 70)
+rsiCrossunder = ta.crossunder(rsi, 30)
+
+// Step 3. Determine indicator signals
+// See if prices crossed above/below Donchian Channel
+upBrkOut = barstate.isconfirmed and ta.crossover(close, hiHighs + brekOutFilter) and close > fastMa and upTrend and rsiCrossover
+downBrkOut = barstate.isconfirmed and ta.crossunder(close, loLows - brekOutFilter) and close < fastMa and downTrend and rsiCrossunder
+
+// Step 4. Output indicator data
+// Plot Donchian Channel on the chart
+ub = plot(hiHighs, color=color.green, title=" Donchian UB")
+lb = plot(loLows, color=color.red, title=" Donchian LB")
+
+// Fill background between Donchian bands
+fill(plot1=ub, plot2=lb, color=fillDc ? color.new(#4169e1, 95) : 
+      color.new(color.white, 100))
+
+// Show midline
+plot(showMid ? midPoint : na, color=color.orange, title="Midline")
+
+// Highlight breakouts with background color
+highlightColour = not showBreakouts ? na :
+     upBrkOut ? color.new(color.green, 80) :
+     downBrkOut ? color.new(color.red, 80) :
+     na
+
+bgcolor(highlightColour)
+
+plot(fastMa, color=color.blue, title="Moving Average")
+plot(slowMa  )
+
+// Step 5. Create indicator alerts
+alertcondition(condition=upBrkOut, title="Long entry", message = "Price closed above Donchian Channel")
+
+alertcondition(condition=downBrkOut, title="Short entry", message="Price closed below Donchian Channel")
+
+if (upBrkOut)
+    alert("Long Entry", alert.freq_once_per_bar_close)
+else if (downBrkOut)
+    alert("Short Entry", alert.freq_once_per_bar_close)
