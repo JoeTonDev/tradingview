@@ -1,0 +1,38 @@
+//@version=5
+//modified by xKaVaLiS as modidified by zonedoutdad from the script by ChrisMoody
+indicator(title='Daily OHLC', shorttitle='D-OHLC', overlay=true, precision=8)
+showThisDay = input(true, title='Show This Day OHLC?')
+highlightDayBG = input(false, title='Highlight Background Bias?')
+aboveBelowBarDayIndicator = input(false, title='Turn on Above/Below Day Open Below Chart')
+//showMonthly = input(false, title="Show Monthly Data (open/close)?")
+//Weekly
+dayOpen = request.security(syminfo.tickerid, 'D', open, lookahead=barmerge.lookahead_on)
+prevDayOpen = request.security(syminfo.tickerid, 'D', open[1], lookahead=barmerge.lookahead_on)
+dayClose = request.security(syminfo.tickerid, 'D', close, lookahead=barmerge.lookahead_on)
+prevDayClose = request.security(syminfo.tickerid, 'D', close[1], lookahead=barmerge.lookahead_on)
+dayHigh = request.security(syminfo.tickerid, 'D', high, lookahead=barmerge.lookahead_on)
+prevDayHigh = request.security(syminfo.tickerid, 'D', high[1], lookahead=barmerge.lookahead_on)
+dayLow = request.security(syminfo.tickerid, 'D', low, lookahead=barmerge.lookahead_on)
+prevDayLow = request.security(syminfo.tickerid, 'D', low[1], lookahead=barmerge.lookahead_on)
+
+// Monthly
+monthOpen = request.security(syminfo.tickerid, 'M', open, lookahead=barmerge.lookahead_on)
+monthClose = request.security(syminfo.tickerid, 'M', close, lookahead=barmerge.lookahead_on)
+
+//Weekly Plots
+dailyOpenCloseColor = close < dayOpen ? color.red : color.green
+plot(showThisDay ? dayOpen : na, title='Daily Open', style=plot.style_line, linewidth=2, color=color.new(dailyOpenCloseColor, 0))
+plot(showThisDay ? dayClose : na, title='Daily Close', style=plot.style_cross, linewidth=1, color=color.new(color.fuchsia, 0))
+plot(showThisDay ? dayHigh : na, title='Daily High', style=plot.style_circles, linewidth=1, color=color.new(color.green, 0))
+plot(showThisDay ? dayLow : na, title='Daily Low', style=plot.style_circles, linewidth=1, color=color.new(color.red, 0))
+// bias background plotting
+aboveDayOpen = close > dayOpen
+belowDayOpen = close < dayOpen
+color_1 = color.new(color.green, 80)
+color_2 = color.new(color.red, 80)
+dayBiasColor = highlightDayBG and aboveDayOpen ? color_1 : highlightDayBG and belowDayOpen ? color_2 : na
+bgcolor(title='Bias Color', color=dayBiasColor, transp=90)
+// plot below indicators
+plotshape(aboveBelowBarDayIndicator and aboveDayOpen, title='Day Open Above', location=location.bottom, color=color.new(color.green, 0), text='', size=size.tiny, style=shape.triangleup)
+plotshape(aboveBelowBarDayIndicator and belowDayOpen, title='Day Open Below', location=location.bottom, color=color.new(color.red, 0), text='', size=size.tiny, style=shape.triangledown)
+
