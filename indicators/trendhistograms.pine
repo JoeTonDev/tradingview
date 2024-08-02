@@ -1,0 +1,55 @@
+//@version=5
+indicator("Trend Histogram", overlay=false)
+
+// Input settings
+shortTrendDistPercent = input.int(2, "Short Trend Dist %") / 100
+longTrendDistPercent = input.int(3, "Long Trend Dist %") / 100
+bufferValue = input.int(5, "Buffer Value", minval=1, maxval=5)
+
+// Moving Averages
+ma3 = ta.sma(close, 3)
+ma8 = ta.sma(close, 8)
+ma20 = ta.sma(close, 20)
+ma21 = ta.sma(close, 21)
+ma55 = ta.sma(close, 55)
+ma89 = ta.sma(close, 89)
+
+// Fast Trend Conditions
+fastGreen = ma21 > ma55 and ma55 > ma89
+fastYellow = ma21 < ma55 and ma21 > ma89
+fastLightRed = ma21 < ma55 and ma55 < ma89
+fastDarkGreen = (close[1] - ma21[1]) / ma21[1] > longTrendDistPercent
+fastDarkRed = (close[1] - ma21[1]) / ma21[1] < -longTrendDistPercent
+
+// Slow Trend Conditions
+slowGreen = ma3 > ma8 and ma8 > ma20
+slowYellow = ma3 < ma8 and ma8 > ma20
+slowLightRed = ma3 < ma8 and ma8 < ma20
+slowDarkGreen = (close[1] - ma8[1]) / ma8[1] > shortTrendDistPercent
+slowDarkRed = (close[1] - ma8[1]) / ma8[1] < -shortTrendDistPercent
+
+// Plotting Fast Trend Histogram (using lower buffer values for separation)
+plot(fastGreen ? bufferValue : na, color=color.green, title="Fast Trend Green", style=plot.style_histogram, histbase=0)
+plot(fastYellow ? bufferValue  : na, color=color.yellow, title="Fast Trend Yellow", style=plot.style_histogram, histbase=0)
+plot(fastLightRed ? bufferValue  : na, color=color.red, title="Fast Trend Light Red", style=plot.style_histogram, histbase=0)
+plot(fastDarkGreen ? bufferValue  : na, color=#006400, title="Fast Trend Dark Green", style=plot.style_histogram, histbase=0)
+plot(fastDarkRed ? bufferValue  : na, color=#8B0000, title="Fast Trend Dark Red", style=plot.style_histogram, histbase=0)
+
+// Plotting Slow Trend Histogram (using higher buffer values for separation)
+plot(slowGreen ? -bufferValue  : na, color=color.green, title="Slow Trend Green", style=plot.style_histogram, histbase=0)
+plot(slowYellow ? -bufferValue  : na, color=color.yellow, title="Slow Trend Yellow", style=plot.style_histogram, histbase=0)
+plot(slowLightRed ? -bufferValue  : na, color=color.red, title="Slow Trend Light Red", style=plot.style_histogram, histbase=0)
+plot(slowDarkGreen ? -bufferValue  : na, color=#006400, title="Slow Trend Dark Green", style=plot.style_histogram, histbase=0)
+plot(slowDarkRed ? -bufferValue  : na, color=#8B0000, title="Slow Trend Dark Red", style=plot.style_histogram, histbase=0)
+
+
+// Adding labels
+var label fastTrendLabel = na
+var label slowTrendLabel = na
+
+if (bar_index == na(bar_index[1])) // Checking if it's the first bar
+    fastTrendLabel := label.new(x=bar_index, y=bufferValue * 2, text="Fast Trend", color=color.blue, textcolor=color.white, size=size.small)
+    slowTrendLabel := label.new(x=bar_index, y=-bufferValue * 2, text="Slow Trend", color=color.blue, textcolor=color.white, size=size.small)
+else
+    label.set_xy(fastTrendLabel, bar_index, bufferValue * 2)
+    label.set_xy(slowTrendLabel, bar_index, -bufferValue * 2)
