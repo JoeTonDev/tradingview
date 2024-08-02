@@ -1,0 +1,55 @@
+//@version=5
+indicator("Trend Histogram", overlay=false)
+
+// Settings
+short_trend_dist = input(2, title="Short Trend Dist %")
+long_trend_dist = input(3, title="Long Trend Dist %")
+slow_trend_buffer = input.int(1, minval=1, maxval=5, title="Slow Trend Buffer")
+fast_trend_buffer = input.int(1, minval=1, maxval=5, title="Fast Trend Buffer")
+
+// Calculate SMAs for Slow Trend
+sma3 = ta.sma(close, 3)
+sma8 = ta.sma(close, 8)
+sma20 = ta.sma(close, 20)
+
+// Calculate SMAs for Fast Trend
+sma21 = ta.sma(close, 21)
+sma55 = ta.sma(close, 55)
+sma89 = ta.sma(close, 89)
+
+// Calculate yesterday's close and SMAs
+yesterday_close = close[1]
+yesterday_sma8 = sma8[1]
+yesterday_sma21 = sma21[1]
+
+// Define conditions for Slow Trend histogram colors
+slow_green_condition = sma3 > sma8 and sma8 > sma20
+slow_yellow_condition = sma3 < sma8 and sma8 > sma20
+slow_light_red_condition = sma3 < sma8 and sma8 < sma20
+slow_dark_green_condition = (yesterday_close - yesterday_sma8) / yesterday_sma8 > short_trend_dist / 100
+slow_dark_red_condition = (yesterday_close - yesterday_sma8) / yesterday_sma8 < -short_trend_dist / 100
+
+// Define conditions for Fast Trend histogram colors
+fast_green_condition = sma21 > sma55 and sma55 > sma89
+fast_yellow_condition = sma21 < sma55 and sma21 > sma89
+fast_light_red_condition = sma21 < sma55 and sma55 < sma89
+fast_dark_green_condition = (yesterday_close - yesterday_sma21) / yesterday_sma21 > long_trend_dist / 100
+fast_dark_red_condition = (yesterday_close - yesterday_sma21) / yesterday_sma21 < -long_trend_dist / 100
+
+// Determine color based on conditions for Slow Trend
+slow_histogram_color = slow_green_condition ? color.green :
+                       slow_yellow_condition ? color.yellow :
+                       slow_light_red_condition ? color.red :
+                       slow_dark_green_condition ? color.new(color.green, 80) :  // Dark Green
+                       slow_dark_red_condition ? color.new(color.red, 80) : na  // Dark Red
+
+// Determine color based on conditions for Fast Trend
+fast_histogram_color = fast_green_condition ? color.green :
+                       fast_yellow_condition ? color.yellow :
+                       fast_light_red_condition ? color.red :
+                       fast_dark_green_condition ? color.new(color.green, 80) :  // Dark Green
+                       fast_dark_red_condition ? color.new(color.red, 80) : na  // Dark Red
+
+// Plot histograms with buffer values
+plot(slow_trend_buffer, color=slow_histogram_color, style=plot.style_histogram, linewidth=2, title="Slow Trend")
+plot(fast_trend_buffer + 1, color=fast_histogram_color, style=plot.style_histogram, linewidth=2, title="Fast Trend")
