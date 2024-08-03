@@ -1,0 +1,144 @@
+strategy('ADXVMA', shorttitle='ADXVMA', overlay=true, default_qty_type =  strategy.percent_of_equity, default_qty_value=100, commission_type =  strategy.commission.percent, commission_value=0.1)
+
+// Inputs parameters
+TradeType = input.string(title='Trade Type', default_qty_type = 'Long', options=['LongAndShort', 'Long', 'Short'])
+
+MAType = input.string(title='MA Type', defval='EMA', options=['WMA', 'EMA', 'SMA'])
+MAPeriod = input.int(title='MA Period', defval=50, step=1)
+
+TrendMAEnabled = input(title='Trend MA Enabled', defval=true)
+TrendMAType = input.string(title='MA Type', defval = 'WMA', options=['WMA', 'EMA', 'SMA'])
+TrendPeriod = input.int(title='Trend Period', defval=150, step=10)
+
+EntryOnAboveBelowTrendMA = input(title='Entry on Above/Below Trend MA', defval=false)
+
+ExitOnTrendReversal = input(title='Exit on Trend Reversal', defval=false)
+ExitOnLowHighBreak = input(title='Exit on Low/High Break', defval=false)
+ExitType = input.string(title='Exit Type', defval='OnReverse', options=['OnFlat', 'OnReverse'])
+
+Period = input.int(title='Period', defval=14, minval=1)
+VolatilityATRPeriod = input.int(title='Volatility ATR Period', defval=20, minval=1, step=10)
+VolatilityMultiplier = input.float(title='Volatility Multiplier', defval=0.11, minval=0.01, step=0.01)
+
+//Custom functions
+GetMASource(source, TrendMAType, TrendPeroid) =>
+  switch TrendMAType 
+    'EMA' => ta.ema(source, peroid)
+    'SMA' => ta.sma(source, peroid)
+    => ta.wma(source, peroid)
+
+// Indicator calculations
+ups=0.0
+downs=0.0
+index=0.0
+adxvma=0.0
+trend=0
+up=0.0
+down=0.0
+
+k=1.0/adxvma_period
+
+volatility = ta.atr(200)
+
+currentUp=math.max(close[0] - close[1], 0)
+currentDown=math.max(close[1] - close[0], 0)
+
+up:=(1-k)*nz(up[1]) + k*currentUp[0]
+down:=(1-k)*nz(down[1]) + k*currentDown[0]
+
+sum = up[0] + down[0]
+
+fractionUp=0.0
+fractionDown=0.0
+    
+if sum > 0.0
+	fractionUp := up[0]/sum
+	fractionDown := down[0]/sum
+
+ups:=(1-k)*nz(ups[1])+k*fractionUp
+downs:=(1-k)*nz(downs[1])+k*fractionDown
+
+normDiff = math.abs(ups[0] - downs[0])
+normSum = ups[0] + downs[0]
+
+
+normFraction=if normSum > 0.0
+    normDiff/normSum
+
+index:=(1-k)*nz(index[1]) + k*normFraction
+ups:=(1-k)*nz(ups[1]) + k*fractionUp
+downs:=(1-k)*nz(downs[1]) + k*fractionDown
+
+epsilon = 0.1 * nz(volatility[1])
+hhp = ta.highest(index,adxvma_period)[1]
+llp = ta.lowest(index,adxvma_period)[1]
+
+hhv = math.max(index[0],hhp)
+llv = math.min(index[0],llp)
+
+vIndex=0.0
+
+if (hhv-llv)>0.0
+    vIndex:=(index[0]-llv)/(hhv-llv)
+
+adxvma:=(1 - k*vIndex)*nz(adxvma[1]) + k*vIndex*close[0]
+
+lcolor=lime
+
+if (nz(trend[1])>-1 and adxvma[0]> nz(adxvma[1]))
+    trend:=1
+    lcolor=black
+else
+    if (nz(trend[1])<1 and adxvma[0]<nz(adxvma[1]))
+        trend:=-1
+        lcolor:=red
+    else
+        trend:=0
+        lcolor:=yellow
+
+plot( adxvma, color= lcolor, linewidth=3)
+
+//Trend MA calculations
+Trend = GetMASource(close, TrendMAType, TrendPeriod)
+
+trendUp = trend > trend[1]
+trendDown = trend < trend[1]
+
+priceAboveTrend = close > Trend
+priceBelowTrend = close < Trend
+
+plot(TrendMAEnabled ? Trend : na, title='Trend MA', style=plot.style_line, linewidth=4, color=trendUP ? color.green : color.red)
+
+//Breakouts
+BullBreakout = close[0] & close[1] > high[2]
+BearBreakout = close[0] & close[1] < low[2]
+
+//Trading logic
+longCondition = trend == 1 and (not TrendMAEnabled or trendUp) and (not EntryOnAboveBelowTrendMA or priceAboveTrend)
+shortCondition = trend == -1 and (not TrendMAEnabled or trendDown) and (not EntryOnAboveBelowTrendMA or priceBelowTrend)
+exitLongCondition = ExitOnLowHHighBreak and BearBreakout or ExitType == 'OnFlat' and trend == 0 or
+ExitType == 'OnReverse' and trend == -1 or ExitOnTrendReverse and trendDown
+exitShortCondition = ExitOnLowHHighBreak and BullBreakout or ExitType == 'OnFlat' and trend == 0 or
+ExitType == 'OnReverse' and trend == 1 or ExitOnTrendReverse and trendUp
+
+isLong = false
+isShort = false
+isExitLong = false
+isExitShort = false
+
+switch
+    strategy.position_size <= 0 and longCondition => isLong := true
+    strategy.position_size >= 0 and shortCondition => isShort := true
+    strategy.position_size > 0 and exitLongCondition => isExitLong := true
+    strategy.position_size < 0 and exitShortCondition => isExitShort := true
+
+if(strategy.position_size > 0 and (isExitLong or isShort and TradeType == 'Long') or strategy.position_size < 0 and (isExitShort or isLong and TradeType == 'Short'))
+    strategy.close_all()
+
+if(isLong and TradeType != 'Short')
+    strategy.entry('Long', strategy.long)
+
+if(isShort and TradeType != 'Long')
+    strategy.entry('Short', strategy.short)
+
+
